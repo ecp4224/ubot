@@ -8,6 +8,20 @@ public class Schedule<T> {
     private PRunnable<T> task;
     private T val;
 
+    public static <T> Schedule<T> combind(final Schedule... schedules) {
+        return new Schedule<>(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                for (Schedule schedule : schedules) {
+                    if (!schedule.isReady())
+                        return false;
+                }
+
+                return true;
+            }
+        });
+    }
+
     public static <T> Schedule<T> never() {
         return new Schedule<>(new Callable<Boolean>() {
             @Override
