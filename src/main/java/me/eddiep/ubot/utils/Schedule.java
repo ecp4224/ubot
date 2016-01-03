@@ -8,6 +8,15 @@ public class Schedule<T> {
     private PRunnable<T> task;
     private T val;
 
+    public static <T> Schedule<T> never() {
+        return new Schedule<>(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                return false;
+            }
+        });
+    }
+
     public static <T> Schedule<T> now() {
         return new Schedule<T>(new Callable<Boolean>() {
             @Override

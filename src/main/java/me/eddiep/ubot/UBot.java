@@ -60,6 +60,12 @@ public final class UBot {
         if (!gitRepo.exists() || !gitRepo.isDirectory())
             throw new IllegalArgumentException("The directory " + gitRepo.getAbsolutePath() + " does not exist or is not a directory!");
 
+        File test = new File(gitRepo, ".git");
+        if (test.exists() && test.isDirectory()) {
+            loggerModule.log(".git folder found in repo folder. Using .git folder");
+            gitRepo = test;
+        }
+
         this.gitRepoFolder = gitRepo;
         setDefaultModules();
         this.runningVersion = fetchGitVersion();
@@ -97,7 +103,7 @@ public final class UBot {
     }
 
     public String fetchGitVersion() {
-        File verFile = new File(gitRepoFolder, "version");
+        File verFile = new File(gitRepoFolder.getParentFile(), "version");
         if (!verFile.exists()) {
             loggerModule.warning("No version found! Assuming version 1.0.0");
             String ver = "1.0.0";
@@ -119,7 +125,7 @@ public final class UBot {
     public void saveVersion(String version) {
         validateVersion(version);
 
-        File verFile = new File(gitRepoFolder, "version");
+        File verFile = new File(gitRepoFolder.getParentFile(), "version");
 
         try (PrintWriter writer = new PrintWriter(verFile)) {
             writer.write(version);
@@ -156,7 +162,7 @@ public final class UBot {
     }
 
     private void validateVersion(String version) {
-        String[] split = version.split(".");
+        String[] split = version.split("\\.");
         if (split.length != 3)
             throw new IllegalArgumentException("Invalid version: " + version);
 
@@ -180,8 +186,8 @@ public final class UBot {
     }
 
     public UpdateType getUpdateType(String oldVersion, String newVersion) {
-        String[] oldVersionNums = oldVersion.split(".");
-        String[] newVersionNums = newVersion.split(".");
+        String[] oldVersionNums = oldVersion.split("\\.");
+        String[] newVersionNums = newVersion.split("\\.");
         try {
             int oMajor = Integer.parseInt(oldVersionNums[0]);
             int oMinor = Integer.parseInt(oldVersionNums[1]);
@@ -231,8 +237,6 @@ public final class UBot {
             if (currentTask.isReady()) {
                 currentTask.execute();
             }
-
-            return;
         }
 
         updateModule.onPreCheck(this);
@@ -255,6 +259,8 @@ public final class UBot {
             if (type == UpdateType.NONE)
                 return; //No update was detected
 
+            this.runningVersion = version; //Set new version to currently found version
+
             Schedule<UpdateType> task = updateModule.shouldBuild(type, this);
             task.attach(new PRunnable<UpdateType>() {
 
@@ -274,10 +280,10 @@ public final class UBot {
     }
 
     private void build(UpdateType type) {
-        File buildScript = new File(gitRepoFolder, "build.sh");
+        File buildScript = new File(gitRepoFolder.getParentFile(), "build.sh");
         try {
             loggerModule.log("Running build script..");
-            Process p = new ProcessBuilder("sh", buildScript.getAbsolutePath()).start();
+            Process p = new ProcessBuilder("sh", buildScript.getAbsolutePath()).directory(gitRepoFolder.getParentFile()).start();
             int exitVal = p.waitFor();
 
             if (exitVal != 0) {
@@ -305,11 +311,11 @@ public final class UBot {
     }
 
     private void patch(UpdateType type) {
-        File patchScript = new File(gitRepoFolder, "patch.sh");
+        File patchScript = new File(gitRepoFolder.getParentFile(), "patch.sh");
         loggerModule.log("Running patch script..");
 
         try {
-            Process p = new ProcessBuilder("sh", patchScript.getAbsolutePath()).start();
+            Process p = new ProcessBuilder("sh", patchScript.getAbsolutePath()).directory(gitRepoFolder.getParentFile()).start();
             int exitVal = p.waitFor();
 
             if (exitVal != 0) {
