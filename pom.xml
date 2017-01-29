@@ -4,9 +4,9 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>me.eddiep.ubot</groupId>
+    <groupId>me.eddiep</groupId>
     <artifactId>ubot</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
     <build>
         <plugins>
             <plugin>
@@ -34,4 +34,23 @@
         </dependency>
 
     </dependencies>
+
+    <distributionManagement>
+        <repository>
+            <id>ssh-repository</id>
+            <url>scpexe://root@galaxygaming.gg/maven</url>
+        </repository>
+    </distributionManagement>
+
+    <build>
+        <extensions>
+            <!-- Enabling the use of SSH -->
+            <extension>
+                <groupId>org.apache.maven.wagon</groupId>
+                <artifactId>wagon-ssh-external</artifactId>
+                <version>1.0-beta-6</version>
+            </extension>
+        </extensions>
+    </build>
+
 </project>
