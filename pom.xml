@@ -8,6 +8,13 @@
     <artifactId>ubot</artifactId>
     <version>1.2.0</version>
     <build>
+        <extensions>
+            <extension>
+                <groupId>org.apache.maven.wagon</groupId>
+                <artifactId>wagon-ssh-external</artifactId>
+                <version>1.0-beta-6</version>
+            </extension>
+        </extensions>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -41,16 +48,5 @@
             <url>scpexe://root@galaxygaming.gg/maven</url>
         </repository>
     </distributionManagement>
-
-    <build>
-        <extensions>
-            <!-- Enabling the use of SSH -->
-            <extension>
-                <groupId>org.apache.maven.wagon</groupId>
-                <artifactId>wagon-ssh-external</artifactId>
-                <version>1.0-beta-6</version>
-            </extension>
-        </extensions>
-    </build>
 
 </project>
