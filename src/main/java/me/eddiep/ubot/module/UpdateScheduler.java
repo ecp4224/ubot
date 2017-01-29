@@ -4,7 +4,7 @@ import me.eddiep.ubot.UBot;
 import me.eddiep.ubot.utils.Schedule;
 import me.eddiep.ubot.utils.UpdateType;
 
-public interface UpdateNotifier extends Module {
+public interface UpdateScheduler extends Module {
     void onPreCheck(UBot uBot);
 
     Schedule<UpdateType> shouldBuild(UpdateType type, UBot ubot);

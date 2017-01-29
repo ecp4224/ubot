@@ -21,7 +21,9 @@ public class UBotLoop implements Runnable {
             try {
                 Thread.sleep(interval);
             } catch (InterruptedException e) {
-                ubot.getErrorModule().error(e);
+                ubot.getLoggerModule().log("Sleep interrupted! An update check was most likely requested.");
+            } catch (Throwable t) {
+                ubot.getErrorModule().error(t);
             }
         }
     }

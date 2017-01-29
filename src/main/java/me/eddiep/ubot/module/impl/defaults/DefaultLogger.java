@@ -1,4 +1,4 @@
-package me.eddiep.ubot.module.impl;
+package me.eddiep.ubot.module.impl.defaults;
 
 import me.eddiep.ubot.module.Logger;
 
@@ -17,7 +17,7 @@ public class DefaultLogger implements Logger {
     }
 
     @Override
-    public void deinit() {
+    public void dispose() {
 
     }
 }

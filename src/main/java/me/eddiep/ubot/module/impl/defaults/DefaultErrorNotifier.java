@@ -1,4 +1,4 @@
-package me.eddiep.ubot.module.impl;
+package me.eddiep.ubot.module.impl.defaults;
 
 import me.eddiep.ubot.module.ErrorNotifier;
 
@@ -14,7 +14,7 @@ public class DefaultErrorNotifier implements ErrorNotifier {
     }
 
     @Override
-    public void deinit() {
+    public void dispose() {
 
     }
 }

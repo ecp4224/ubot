@@ -2,10 +2,12 @@ package me.eddiep.ubot;
 
 import me.eddiep.ubot.module.ErrorNotifier;
 import me.eddiep.ubot.module.Logger;
-import me.eddiep.ubot.module.UpdateNotifier;
-import me.eddiep.ubot.module.impl.DefaultErrorNotifier;
-import me.eddiep.ubot.module.impl.DefaultLogger;
-import me.eddiep.ubot.module.impl.DefaultUpdateNotifier;
+import me.eddiep.ubot.module.UpdateScheduler;
+import me.eddiep.ubot.module.VersionFetcher;
+import me.eddiep.ubot.module.impl.defaults.DefaultErrorNotifier;
+import me.eddiep.ubot.module.impl.defaults.DefaultLogger;
+import me.eddiep.ubot.module.impl.defaults.DefaultUpdateNotifier;
+import me.eddiep.ubot.module.impl.defaults.DefaultVersionFetcher;
 import me.eddiep.ubot.utils.CancelToken;
 import me.eddiep.ubot.utils.PRunnable;
 import me.eddiep.ubot.utils.Schedule;
@@ -18,16 +20,14 @@ import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.Scanner;
 
 public final class UBot {
     private ErrorNotifier errorModule;
-    private UpdateNotifier updateModule;
+    private UpdateScheduler updateModule;
     private Logger loggerModule;
-    private String runningVersion;
+    private VersionFetcher versionModule;
+
     private File gitRepoFolder;
     private Thread updateThread;
     private Repository gitRepo;
@@ -38,21 +38,29 @@ public final class UBot {
        init(gitRepo);
     }
 
-    public UBot(File gitRepo, UpdateNotifier updateModule) {
+    public UBot(File gitRepo, UpdateScheduler updateModule) {
         this.updateModule = updateModule;
         init(gitRepo);
     }
 
-    public UBot(File gitRepo, UpdateNotifier updateModule, Logger logger) {
+    public UBot(File gitRepo, UpdateScheduler updateModule, Logger logger) {
         this.updateModule = updateModule;
         this.loggerModule = logger;
         init(gitRepo);
     }
 
-    public UBot(File gitRepo, UpdateNotifier updateModule, Logger logger, ErrorNotifier errorModule) {
+    public UBot(File gitRepo, UpdateScheduler updateModule, Logger logger, ErrorNotifier errorModule) {
         this.updateModule = updateModule;
         this.loggerModule = logger;
         this.errorModule = errorModule;
+        init(gitRepo);
+    }
+
+    public UBot(File gitRepo, UpdateScheduler updateModule, Logger logger, ErrorNotifier errorModule, VersionFetcher versionModule) {
+        this.updateModule = updateModule;
+        this.loggerModule = logger;
+        this.errorModule = errorModule;
+        this.versionModule = versionModule;
         init(gitRepo);
     }
 
@@ -68,7 +76,12 @@ public final class UBot {
 
         this.gitRepoFolder = gitRepo;
         setDefaultModules();
-        this.runningVersion = fetchGitVersion();
+
+        errorModule.init();
+        loggerModule.init();
+        updateModule.init();
+        versionModule.init();
+
 
         try {
            this.gitRepo = new FileRepositoryBuilder()
@@ -102,55 +115,24 @@ public final class UBot {
         return token;
     }
 
-    public String fetchGitVersion() {
-        File verFile = new File(gitRepoFolder.getParentFile(), "version");
-        if (!verFile.exists()) {
-            loggerModule.warning("No version found! Assuming version 1.0.0");
-            String ver = "1.0.0";
-            saveVersion(ver);
-            return ver;
-        }
-
-        try (Scanner scanner = new Scanner(verFile)) {
-            String version = scanner.nextLine();
-            validateVersion(version);
-            return version;
-        } catch (FileNotFoundException e) {
-            errorModule.error(e);
-        }
-
-        return null;
-    }
-
-    public void saveVersion(String version) {
-        validateVersion(version);
-
-        File verFile = new File(gitRepoFolder.getParentFile(), "version");
-
-        try (PrintWriter writer = new PrintWriter(verFile)) {
-            writer.write(version);
-        } catch (FileNotFoundException e) {
-            errorModule.error(e);
-            return;
-        }
-
-        this.runningVersion = version;
-    }
-
     public ErrorNotifier getErrorModule() {
         return errorModule;
     }
 
     public void setErrorModule(ErrorNotifier errorModule) {
+        this.errorModule.dispose();
         this.errorModule = errorModule;
+        this.errorModule.init();
     }
 
-    public UpdateNotifier getUpdateModule() {
+    public UpdateScheduler getUpdateModule() {
         return updateModule;
     }
 
-    public void setUpdateModule(UpdateNotifier updateModule) {
+    public void setUpdateModule(UpdateScheduler updateModule) {
+        this.updateModule.dispose();
         this.updateModule = updateModule;
+        this.updateModule.init();
     }
 
     public Logger getLoggerModule() {
@@ -158,68 +140,26 @@ public final class UBot {
     }
 
     public void setLoggerModule(Logger loggerModule) {
+        this.loggerModule.dispose();
         this.loggerModule = loggerModule;
+        this.loggerModule.init();
     }
 
-    private void validateVersion(String version) {
-        String[] split = version.split("\\.");
-        if (split.length != 3)
-            throw new IllegalArgumentException("Invalid version: " + version);
-
-        try {
-            int ver1 = Integer.parseInt(split[0]);
-            int ver2 = Integer.parseInt(split[1]);
-        } catch (Throwable t) {
-            throw new IllegalArgumentException("Invalid version: " + version, t);
-        }
-
-        //The third parameter can have additional info in it
-
-        //Remove pre-release and build metadata
-        String temp = split[2].split("-")[0].split("\\+")[0];
-
-        try {
-            int ver3 = Integer.parseInt(temp);
-        } catch (Throwable t) {
-            throw new IllegalArgumentException("Invalid version: " + version, t);
-        }
+    public VersionFetcher getVersionModule() {
+        return versionModule;
     }
 
-    public UpdateType getUpdateType(String oldVersion, String newVersion) {
-        String[] oldVersionNums = oldVersion.split("\\.");
-        String[] newVersionNums = newVersion.split("\\.");
-        try {
-            int oMajor = Integer.parseInt(oldVersionNums[0]);
-            int oMinor = Integer.parseInt(oldVersionNums[1]);
-            int oBugfix = Integer.parseInt(oldVersionNums[2].split("\\+")[0]);
-            int oUrgent = Integer.parseInt(oldVersionNums[2].split("\\+")[1]);
-
-            int nMajor = Integer.parseInt(newVersionNums[0]);
-            int nMinor = Integer.parseInt(newVersionNums[1]);
-            int nBugfix = Integer.parseInt(newVersionNums[2].split("\\+")[0]);
-            int nUrgent = Integer.parseInt(newVersionNums[2].split("\\+")[1]);
-
-            if (nUrgent > oUrgent) { //This is an urgent update, regardless of other versions
-                return UpdateType.URGENT;
-            }
-
-            if (nMajor > oMajor) {
-                return UpdateType.MAJOR;
-            }
-
-            if (nMinor > oMinor) {
-                return UpdateType.MINOR;
-            }
-
-            if (nBugfix > oBugfix) {
-                return UpdateType.BUGFIX;
-            }
-
-            return UpdateType.NONE;
-        } catch (Throwable t) {
-            return UpdateType.NONE;
-        }
+    public void setVersionModule(VersionFetcher versionModule) {
+        this.versionModule.dispose();
+        this.versionModule = versionModule;
+        this.versionModule.init();
     }
+
+    public void forceCheck() {
+        updateThread.interrupt(); //This will wake-up the update thread which will cause a check
+    }
+
+
 
     private void setDefaultModules() {
         if (updateModule == null)
@@ -230,6 +170,9 @@ public final class UBot {
 
         if (loggerModule == null)
             loggerModule = new DefaultLogger();
+
+        if (versionModule == null)
+            versionModule = new DefaultVersionFetcher(this);
     }
 
     void check() {
@@ -250,16 +193,9 @@ public final class UBot {
                 return;
             }
 
-            String version = fetchGitVersion();
-
-            if (runningVersion.equals(version))
-                return; //They are the same, no need to do anymore checking
-
-            UpdateType type = getUpdateType(runningVersion, version);
+            UpdateType type = versionModule.fetchVersion();
             if (type == UpdateType.NONE)
-                return; //No update was detected
-
-            this.runningVersion = version; //Set new version to currently found version
+                return;
 
             Schedule<UpdateType> task = updateModule.shouldBuild(type, this);
             task.attach(new PRunnable<UpdateType>() {
@@ -270,6 +206,7 @@ public final class UBot {
                 }
             }, type);
             this.currentTask = task;
+            versionModule.onUpdateScheduled();
 
             if (task.isReady()) {
                 task.execute();
@@ -288,6 +225,7 @@ public final class UBot {
 
             if (exitVal != 0) {
                 loggerModule.warning("Build script did not exit with proper exit value (got " + exitVal + ")");
+                return;
             } else {
                 loggerModule.log("Build complete");
             }
@@ -325,10 +263,13 @@ public final class UBot {
             }
 
             updateModule.patchComplete(type, this);
-
             this.currentTask = null;
         } catch (IOException | InterruptedException e) {
             errorModule.error(e);
         }
+    }
+
+    public File getGitRepoFolder() {
+        return gitRepoFolder;
     }
 }

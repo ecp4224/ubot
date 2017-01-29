@@ -1,18 +1,18 @@
-package me.eddiep.ubot.module.impl;
+package me.eddiep.ubot.module.impl.defaults;
 
 import me.eddiep.ubot.UBot;
-import me.eddiep.ubot.module.UpdateNotifier;
+import me.eddiep.ubot.module.UpdateScheduler;
 import me.eddiep.ubot.utils.Schedule;
 import me.eddiep.ubot.utils.UpdateType;
 
-public class DefaultUpdateNotifier implements UpdateNotifier {
+public class DefaultUpdateNotifier implements UpdateScheduler {
     @Override
     public void init() {
 
     }
 
     @Override
-    public void deinit() {
+    public void dispose() {
 
     }
 
