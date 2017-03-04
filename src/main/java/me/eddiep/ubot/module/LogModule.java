@@ -1,6 +1,6 @@
 package me.eddiep.ubot.module;
 
-public interface Logger extends Module {
+public interface LogModule extends Module {
     void log(String message);
 
     void warning(String message);

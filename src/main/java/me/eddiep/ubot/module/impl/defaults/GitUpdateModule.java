@@ -1,7 +1,7 @@
 package me.eddiep.ubot.module.impl.defaults;
 
 import me.eddiep.ubot.UBot;
-import me.eddiep.ubot.module.VersionFetcher;
+import me.eddiep.ubot.module.UpdateModule;
 import me.eddiep.ubot.utils.UpdateType;
 
 import java.io.File;
@@ -9,23 +9,32 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.Scanner;
 
-public class DefaultVersionFetcher implements VersionFetcher {
-    protected String runningVersion;
-    protected UBot ubot;
+public class GitUpdateModule implements UpdateModule {
+    private String runningVersion;
 
-    public DefaultVersionFetcher(UBot ubot) {
-        this.ubot = ubot;
+    protected UBot ubot;
+    protected File verFile;
+
+    public GitUpdateModule(UBot ubot) {
+        this(ubot, new File(ubot.getGitRepoFolder().getParentFile(), ".version"));
     }
 
-    protected String fetchGitVersion() {
-        File verFile = new File(ubot.getGitRepoFolder().getParentFile(), "version");
+    public GitUpdateModule(UBot ubot, File versionFile) {
+        this.ubot = ubot;
+        this.verFile = versionFile;
+
         if (!verFile.exists()) {
             ubot.getLoggerModule().warning("No version found! Assuming version 1.0.0");
             String ver = "1.0.0";
             saveVersion(ver);
-            return ver;
         }
+    }
 
+    protected String fetchNewVersion() {
+        return fetchGitVersion();
+    }
+
+    protected String fetchGitVersion() {
         try (Scanner scanner = new Scanner(verFile)) {
             String version = scanner.nextLine();
             validateVersion(version);
@@ -40,7 +49,7 @@ public class DefaultVersionFetcher implements VersionFetcher {
     protected void saveVersion(String version) {
         validateVersion(version);
 
-        File verFile = new File(ubot.getGitRepoFolder().getParentFile(), "version");
+        File verFile = new File(ubot.getGitRepoFolder().getParentFile(), ".version");
 
         try (PrintWriter writer = new PrintWriter(verFile)) {
             writer.write(version);
@@ -76,6 +85,16 @@ public class DefaultVersionFetcher implements VersionFetcher {
         }
     }
 
+    protected void setRunningVersion(String newVersion) {
+        this.runningVersion = newVersion;
+
+        if (this.runningVersion.split("-").length > 1) {
+            String hash = this.runningVersion.split("-")[1];
+
+            ubot.checkoutCommit(hash);
+        }
+    }
+
     @Override
     public void init() {
         this.runningVersion = fetchGitVersion();
@@ -87,18 +106,27 @@ public class DefaultVersionFetcher implements VersionFetcher {
     }
 
     @Override
-    public UpdateType fetchVersion() {
-        String version = fetchGitVersion();
-
-        if (runningVersion.equals(version))
-            return UpdateType.NONE; //They are the same, no need to do anymore checking
-
-        return UpdateType.getUpdateType(runningVersion, version);
+    public String getRunningVersion() {
+        return this.runningVersion;
     }
 
     @Override
-    public void onUpdateScheduled() {
-        this.runningVersion = fetchGitVersion();
-    }
+    public UpdateType checkForUpdates() {
+        if (!ubot.pull()) { //Pull from repo
+            return UpdateType.NONE;
+        }
 
+        String updatedVersion = fetchNewVersion();
+
+        if (runningVersion.equals(updatedVersion))
+            return UpdateType.NONE;
+
+        UpdateType type = UpdateType.getUpdateType(runningVersion, updatedVersion);
+
+        if (type != UpdateType.NONE) {
+            setRunningVersion(updatedVersion);
+        }
+
+        return type;
+    }
 }

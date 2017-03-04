@@ -1,8 +1,8 @@
 package me.eddiep.ubot.module.impl.defaults;
 
-import me.eddiep.ubot.module.Logger;
+import me.eddiep.ubot.module.LogModule;
 
-public class DefaultLogger implements Logger {
+public class DefaultLogModule implements LogModule {
     public void log(String message) {
         System.out.println("[UBOT] " + message);
     }
